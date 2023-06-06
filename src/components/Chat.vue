@@ -88,6 +88,7 @@ async function sendMessage() {
   chatMessages.value.push(message);
 
   fetchChat(message.content, messageHistory).then(({ data }) => {
+      console.log(data)
     // 后端返回答案
     chatMessages.value.push({
       type: "ai",

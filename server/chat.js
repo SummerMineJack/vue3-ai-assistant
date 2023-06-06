@@ -1,33 +1,35 @@
-import { OpenAI } from "langchain/llms/openai";
-import { ConversationalRetrievalQAChain } from "langchain/chains";
-import { PineconeClient } from "@pinecone-database/pinecone";
-import { PineconeStore } from "langchain/vectorstores/pinecone";
-import { OpenAIEmbeddings } from "langchain/embeddings/openai";
+import {OpenAI} from "langchain/llms/openai";
+import {ConversationalRetrievalQAChain} from "langchain/chains";
+import {PineconeClient} from "@pinecone-database/pinecone";
+import {PineconeStore} from "langchain/vectorstores/pinecone";
+import {OpenAIEmbeddings} from "langchain/embeddings/openai";
 import * as dotenv from "dotenv";
 
-dotenv.config();
+dotenv.config({
+    path: '../.env'
+})
 
 const model = new OpenAI({
-  temperature: 0,
-  modelName: "gpt-3.5-turbo",
+    temperature: 0,
+    modelName: "gpt-3.5-turbo",
 });
 
 // 创建向量数据库
 // 这里可以放到初始化的部分做
 const pinecone = new PineconeClient();
 await pinecone.init({
-  apiKey: process.env.PINECONE_API_KEY,
-  environment: process.env.PINECONE_ENVIRONMENT,
+    apiKey: process.env.PINECONE_API_KEY,
+    environment: process.env.PINECONE_ENVIRONMENT,
 });
 
 const pineconeIndex = pinecone.Index(process.env.PINECONE_INDEX);
 const vectorStore = await PineconeStore.fromExistingIndex(
-  new OpenAIEmbeddings(),
-  {
-    pineconeIndex: pineconeIndex,
-    textKey: "text",
-    namespace: "vue3-document",
-  }
+    new OpenAIEmbeddings(),
+    {
+        pineconeIndex: pineconeIndex,
+        textKey: "text",
+        namespace: "vue3-document",
+    }
 );
 
 const CONDENSE_PROMPT = ` 给定以下对话记录和一个后续问题，将后续问题重述为一个独立的问题。
@@ -67,22 +69,24 @@ const QA_PROMPT = `
 // Helpful answer in markdown:`;
 
 const chain = ConversationalRetrievalQAChain.fromLLM(
-  model,
-  vectorStore.asRetriever(),
-  {
-    qaTemplate: QA_PROMPT,
-    questionGeneratorTemplate: CONDENSE_PROMPT,
-    returnSourceDocuments: true,
-  }
+    model,
+    vectorStore.asRetriever(),
+    {
+        qaTemplate: QA_PROMPT,
+        questionGeneratorTemplate: CONDENSE_PROMPT,
+        returnSourceDocuments: true,
+    }
 );
 
+
+
 export async function chat(ctx) {
-  const { message, history } = ctx.request.body;
+    const {message, history} = ctx.request.body;
+    const response = await chain.call({
+        question: message,
+        chat_history: history || [],
+    });
+    console.log(response)
 
-  const response = await chain.call({
-    question: message,
-    chat_history: history || [],
-  });
-
-  return response;
+    return response;
 }
